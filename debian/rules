@@ -1,22 +1,24 @@
 #!/usr/bin/make -f
+build-static = ../obj-$(DEB_HOST_MULTIARCH)-static
+build-shared = ../obj-$(DEB_HOST_MULTIARCH)-shared
 
 %:
 	dh $@
 
 override_dh_auto_configure:
-	dh_auto_configure --builddirectory=build-static -- \
+	dh_auto_configure --builddirectory=$(build-static) -- \
 		-DCMAKE_LIBRARY_PATH=$(DEB_HOST_MULTIARCH) \
 		-DBUILD_SHARED_LIBS=OFF \
 		-DCMAKE_FIND_LIBRARY_SUFFIXES=".a;.so"
-	dh_auto_configure --builddirectory=build-shared -- \
+	dh_auto_configure --builddirectory=$(build-shared) -- \
 		-DCMAKE_LIBRARY_PATH=$(DEB_HOST_MULTIARCH) \
 		-DBUILD_SHARED_LIBS=ON \
 		-DCMAKE_FIND_LIBRARY_SUFFIXES=".so;.a"
 	
 override_dh_auto_build:
-	dh_auto_build --builddirectory=build-static
-	dh_auto_build --builddirectory=build-shared
+	dh_auto_build --builddirectory=$(build-static)
+	dh_auto_build --builddirectory=$(build-shared)
 
 override_dh_auto_install:
-	dh_auto_install --builddirectory=build-static
-	dh_auto_install --builddirectory=build-shared
+	dh_auto_install --builddirectory=$(build-static)
+	dh_auto_install --builddirectory=$(build-shared)
