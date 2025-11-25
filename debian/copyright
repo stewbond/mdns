@@ -1,0 +1,13 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Source: native
+Upstream-Name: libmdns
+Upstream-Contact: Stewart Ferguson <stew@sim-international.com>
+
+Files:
+ *
+Copyright:
+ 2025 Stewart Ferguson <stew@sim-international.com>
+License: Proprietary
+
+License: Proprietary
+ Consult your contract with sim international.
