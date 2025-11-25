@@ -11,7 +11,7 @@ find_package(Boost COMPONENTS system QUIET)    # target: Boost::system
 find_package(Uv QUIET)                         # target: uv::uv
 find_package(Avahi COMPONENTS client REQUIRED) # target: avahi::client
 
-add_library(mdns SHARED
+add_library(mdns
   # Public objects class
   src/mdns.cpp
   src/group.cpp
@@ -50,7 +50,7 @@ target_compile_definitions(mdns
 
 target_link_libraries(mdns
   PRIVATE
-    avahi-client
+    avahi::client
   PUBLIC
     $<TARGET_NAME_IF_EXISTS:Boost::system>
     $<TARGET_NAME_IF_EXISTS:uv::uv>
