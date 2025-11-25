@@ -1,0 +1,11 @@
+.debhelper/
+debhelper-build-stamp
+files
+libmdns-dev.debhelper.log
+libmdns-dev.substvars
+libmdns-dev/
+libmdns1.debhelper.log
+libmdns1.substvars
+libmdns1/
+tmp/
+
