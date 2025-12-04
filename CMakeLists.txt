@@ -94,6 +94,7 @@ if (MDNS_EXAMPLES)
   endforeach()
 endif()
 
+###############################################################################
 include(GNUInstallDirs)
 install(TARGETS mdns
   EXPORT mdnsTargets
@@ -104,11 +105,39 @@ install(TARGETS mdns
 )
 
 install(EXPORT mdnsTargets
-  FILE mdnsConfig.cmake
+  FILE mdnsTargets.cmake
   NAMESPACE mdns::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mdns
 )
 
+include(CMakePackageConfigHelpers)
+if (TARGET uv::uv)
+  set(MDNS_WITH_UV TRUE) # Used when generating mdnsConfig.cmake
+else()
+  set(MDNS_WITH_UV FALSE)
+endif()
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/mdnsConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/mdnsConfig.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mdns
+)
+
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/mdnsConfigVersion.cmake
+  VERSION ${mdns_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/mdnsConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/mdnsConfigVersion.cmake
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindAvahi.cmake
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/FindUv.cmake
+  DESTINATION
+    ${CMAKE_INSTALL_LIBDIR}/cmake/mdns
+)
+
+###############################################################################
 foreach(example ${examples})
   install(FILES examples/${example}.cpp
     DESTINATION ${CMAKE_INSTALL_DOCDIR}/examples

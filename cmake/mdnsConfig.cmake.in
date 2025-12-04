@@ -1,0 +1,13 @@
+@PACKAGE_INIT@
+
+# We supplied a FindAvahi.cmake.  Let the user find ours if no other is provided
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+include(CMakeFindDependencyMacro)
+find_dependency(Avahi COMPONENTS client REQUIRED)
+
+if(@MDNS_WITH_UV@)
+  find_dependency(Uv QUIET)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/mdnsTargets.cmake")
+
