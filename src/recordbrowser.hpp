@@ -11,6 +11,12 @@ class RecordBrowser
 {
 public:
     using Callback = RecordCallback;
+    struct StartParams
+    {
+        RecordRequest request;
+        LookupFlags flags;
+        Callback callback;
+    };
 
     explicit RecordBrowser(std::shared_ptr<Client> client);
     RecordBrowser(const RecordBrowser&)            = delete;
@@ -18,19 +24,17 @@ public:
     RecordBrowser& operator=(const RecordBrowser&) = delete;
     RecordBrowser& operator=(RecordBrowser&&)      = default;
 
-    std::error_code Start(
-        RecordRequest request,
-        LookupFlags flags,
-        Callback
-    );
+    std::error_code Start(StartParams&&);
 
     void Cancel();
 
     std::error_code GetLastError();
 
+    StartParams GetStartParams() const;
+
 private:
     std::shared_ptr<Client> m_client;
-    Callback m_callback;
+    StartParams m_startparams;
     std::unique_ptr<AvahiRecordBrowser, int(*)(AvahiRecordBrowser*)> m_ptr;
 
     static void RecordBrowserCallback(

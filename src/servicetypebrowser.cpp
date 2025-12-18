@@ -11,20 +11,16 @@ ServiceTypeBrowser::ServiceTypeBrowser(std::shared_ptr<Client> client)
 {
 }
 
-std::error_code ServiceTypeBrowser::Start(
-    DomainInfo request,
-    LookupFlags flags,
-    Callback callback
-)
+std::error_code ServiceTypeBrowser::Start(StartParams&& params)
 {
-    m_callback = callback;
+    m_startparams = std::move(params);
 
     auto p = avahi_service_type_browser_new (
         m_client->GetClient(),
-        to_avahi(request.interface),
-        to_avahi(request.protocol),
-        to_avahi(request.domain),
-        to_avahi(flags),
+        to_avahi(m_startparams.request.interface),
+        to_avahi(m_startparams.request.protocol),
+        to_avahi(m_startparams.request.domain),
+        to_avahi(m_startparams.flags),
         &ServiceTypeBrowser::ServiceTypeBrowserCallback,
         this
     );
@@ -40,12 +36,17 @@ std::error_code ServiceTypeBrowser::Start(
 void ServiceTypeBrowser::Cancel()
 {
     m_ptr.reset();
-    m_callback = Callback{};
+    m_startparams.callback = Callback{};
 }
 
 std::error_code ServiceTypeBrowser::GetLastError()
 {
     return m_client->GetLastError();
+}
+
+ServiceTypeBrowser::StartParams ServiceTypeBrowser::GetStartParams() const
+{
+    return m_startparams;
 }
 
 void ServiceTypeBrowser::ServiceTypeBrowserCallback (
@@ -75,8 +76,8 @@ void ServiceTypeBrowser::ServiceTypeBrowserCallback (
         from_avahi(type)
     };
 
-    if(self->m_callback)
-        self->m_callback(
+    if(self->m_startparams.callback)
+        self->m_startparams.callback(
             from_avahi(event),
             std::move(result),
             from_avahi(flags),

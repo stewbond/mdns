@@ -10,22 +10,18 @@ RecordBrowser::RecordBrowser(std::shared_ptr<Client> client)
     , m_ptr(nullptr, avahi_record_browser_free)
 {}
 
-std::error_code RecordBrowser::Start(
-    RecordRequest request,
-    LookupFlags flags,
-    Callback callback
-    )
+std::error_code RecordBrowser::Start(StartParams&& params)
 {
-    m_callback = callback;
+    m_startparams = std::move(params);
 
     auto p = avahi_record_browser_new(
         m_client->GetClient(),
-        to_avahi(request.interface),
-        to_avahi(request.protocol),
-        to_avahi(request.name),
+        to_avahi(m_startparams.request.interface),
+        to_avahi(m_startparams.request.protocol),
+        to_avahi(m_startparams.request.name),
         AVAHI_DNS_CLASS_IN, // Fine to hard-code.  Avahi provides no other options.
-        to_avahi(request.type),
-        to_avahi(flags),
+        to_avahi(m_startparams.request.type),
+        to_avahi(m_startparams.flags),
         &RecordBrowser::RecordBrowserCallback,
         this
     );
@@ -40,12 +36,17 @@ std::error_code RecordBrowser::Start(
 void RecordBrowser::Cancel()
 {
     m_ptr.reset();
-    m_callback = Callback{};
+    m_startparams.callback = Callback{};
 }
 
 std::error_code RecordBrowser::GetLastError()
 {
     return m_client->GetLastError();
+}
+
+RecordBrowser::StartParams RecordBrowser::GetStartParams() const
+{
+    return m_startparams;
 }
 
 void RecordBrowser::RecordBrowserCallback(
@@ -80,8 +81,8 @@ void RecordBrowser::RecordBrowserCallback(
         size
     };
 
-    if (self->m_callback)
-        self->m_callback(
+    if (self->m_startparams.callback)
+        self->m_startparams.callback(
             from_avahi(event),
             std::move(result),
             from_avahi(flags),

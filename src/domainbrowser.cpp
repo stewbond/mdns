@@ -10,22 +10,17 @@ DomainBrowser::DomainBrowser(std::shared_ptr<Client> client)
     , m_ptr(nullptr, avahi_domain_browser_free)
 {}
 
-std::error_code DomainBrowser::Start(
-    DomainInfo request,
-    DomainBrowserType type,
-    LookupFlags flags,
-    Callback callback
-)
+std::error_code DomainBrowser::Start(StartParams&& params)
 {
-    m_callback = callback;
+    m_startparams = std::move(params);
 
     auto p = avahi_domain_browser_new (
         m_client->GetClient(),
-        to_avahi(request.interface),
-        to_avahi(request.protocol),
-        to_avahi(request.domain),
-        to_avahi(type),
-        to_avahi(flags),
+        to_avahi(m_startparams.request.interface),
+        to_avahi(m_startparams.request.protocol),
+        to_avahi(m_startparams.request.domain),
+        to_avahi(m_startparams.type),
+        to_avahi(m_startparams.flags),
         &DomainBrowser::DomainBrowserCallback,
         this
     );
@@ -40,12 +35,17 @@ std::error_code DomainBrowser::Start(
 void DomainBrowser::Cancel()
 {
     m_ptr.reset();
-    m_callback = Callback{};
+    m_startparams.callback = Callback{};
 }
 
 std::error_code DomainBrowser::GetLastError()
 {
     return m_client->GetLastError();
+}
+
+DomainBrowser::StartParams DomainBrowser::GetStartParams() const
+{
+    return m_startparams;
 }
 
 void DomainBrowser::DomainBrowserCallback(
@@ -73,8 +73,8 @@ void DomainBrowser::DomainBrowserCallback(
         from_avahi(domain)
     };
 
-    if (self->m_callback)
-        self->m_callback(
+    if (self->m_startparams.callback)
+        self->m_startparams.callback(
             from_avahi(event),
             std::move(result),
             from_avahi(flags),

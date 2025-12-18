@@ -1,6 +1,8 @@
 #ifndef _8b3ef8ad0762091763b349b7b8820641
 #define _8b3ef8ad0762091763b349b7b8820641
 #include <mdns/mdns.hpp>
+#include <variant>
+#include <queue>
 #include "polliface.hpp"
 #include "servicetypebrowser.hpp"
 #include "servicebrowser.hpp"
@@ -36,6 +38,7 @@ public:
     std::error_code Run();
 
     void Cancel();
+    void Stop();
 
     std::error_code BrowseDomains(
         const DomainInfo& request,
@@ -43,25 +46,28 @@ public:
         const LookupFlags& flags,
         const DomainCallback& callback
     );
+    std::error_code BrowseDomains(DomainBrowser::StartParams&&);
 
     std::error_code BrowseTypes(
         const DomainInfo& request,
         const LookupFlags& flags,
         const ServiceTypeCallback& callback
     );
+    std::error_code BrowseTypes(ServiceTypeBrowser::StartParams&&);
 
     std::error_code BrowseServices(
         const TypeInfo& request,
         const LookupFlags& flags,
         const ServiceCallback& callback
     );
-
+    std::error_code BrowseServices(ServiceBrowser::StartParams&&);
 
     std::error_code BrowseRecords(
         const RecordRequest& request,
         const LookupFlags& flags,
         const RecordCallback& callback
     );
+    std::error_code BrowseRecords(RecordBrowser::StartParams&&);
 
     std::error_code ResolveAddress(
         const DeviceInfo& device,
@@ -92,6 +98,10 @@ public:
     );
 
 private:
+    void OnClientState(ClientState); // Local callback
+    void OnClientDisconnect(); // Callback for when the client disconnects
+    void ProcessBrowserQueue();
+
     std::unique_ptr<PollIface>    m_poll;
     std::shared_ptr<Client>       m_client;
     std::list<DomainBrowser>      m_domainbrowsers;
@@ -101,6 +111,17 @@ private:
     std::list<AddressResolver>    m_addressresolvers;
     std::list<HostNameResolver>   m_hostnameresolvers;
     std::list<ServiceResolver>    m_serviceresolvers;
+
+    typedef std::variant<
+        DomainBrowser::StartParams,
+        ServiceTypeBrowser::StartParams,
+        ServiceBrowser::StartParams,
+        RecordBrowser::StartParams
+    > BrowserParams;
+
+    std::queue<BrowserParams> m_browserQueue;
+
+    ClientCallback m_userClientCallback;
 };
 
 }

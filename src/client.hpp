@@ -16,6 +16,7 @@ class Client
 {
 public:
     using Callback = ClientCallback;
+    using DisconnectCb = std::function<void()>;
 
     Client() noexcept;
     ~Client();
@@ -23,7 +24,8 @@ public:
     std::error_code Start(
         const PollIface& poller,
         ClientFlags flags,
-        Callback callback
+        Callback callback,        // Called when client state changes. Can be useful for re-registering browsers and entry groups
+        DisconnectCb disconnectCb // Called when client disconnects.  Listener must cancel() all browsers and entry groups groups
     ) noexcept;
 
     Client(const Client&)            = delete;
@@ -42,6 +44,8 @@ public:
     std::string GetFqdn(std::error_code&) noexcept;
     std::string GetFqdn();
     ClientState GetState();
+    bool IsConnected();
+    static bool IsConnected(ClientState);
     uint32_t GetLocalServiceCookie(); // Returns AVAHI_SERVICE_COOKIE_INVALID on failure
     std::error_code GetLastError() noexcept;
     void SetHostname(const std::string&, std::error_code& ) noexcept;
@@ -49,13 +53,18 @@ public:
     bool SupportsMdnsLookups() const noexcept; // gethostbyname() supports mDNS lookups
 
 private:
+    std::error_code Connect();
+
     // Order is important!
     //   m_callback must be defined *before* m_ptr,
     //   so the final callback during m_ptr's destructor actually makes it to its
     //   destination.
     bool m_destroying;
     Callback m_callback;
+    DisconnectCb m_disconnectCb;
     std::unique_ptr<AvahiClient, void(*)(AvahiClient*)> m_ptr;
+    ClientFlags m_flags;
+    const AvahiPoll* m_poll;
 
     static void StaticCallback(AvahiClient*,AvahiClientState,void*);
 };

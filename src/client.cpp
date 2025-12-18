@@ -20,27 +20,16 @@ Client::~Client()
 std::error_code Client::Start(
     const PollIface& poller,
     ClientFlags flags,
-    Callback callback
+    Callback callback,
+    DisconnectCb disconnectCb
 ) noexcept
 {
     m_callback = callback;
+    m_disconnectCb = disconnectCb;
+    m_flags = flags;
+    m_poll = poller.GetPoll();
 
-    int error = AVAHI_OK;
-    AvahiClient* p = avahi_client_new(
-        poller.GetPoll(),
-        to_avahi(flags),
-        StaticCallback, // this WILL get called before *_new() returns
-        this, // No need for shared_from_this().  dtor calls _free() which prevents more callbacks *after* destruction (might still be a callback during).
-        &error
-    );
-
-    assert(p || error);
-
-    if (m_ptr == nullptr)
-        m_ptr.reset(p);
-
-    return priv::ErrFromAvahiInt(error);
-
+    return Connect();
 }
 
 AvahiClient* Client::GetClient() noexcept
@@ -161,6 +150,25 @@ ClientState Client::GetState()
     return from_avahi(avahi_client_get_state(m_ptr.get()));
 }
 
+bool Client::IsConnected()
+{
+    return IsConnected( GetState() );
+}
+
+bool Client::IsConnected(ClientState state)
+{
+    // Per avahi Doxygen:
+    //  > As soon as the daemon becomes available, the object will enter one
+    //  > of the AVAHI_CLEINT_S_xxx states.  Make sure to not create browsers or
+    //  > entry groups before the client object has entered one of those states.
+    // The AVAHI_CLIENT_S_xxx states include running, registering, collision.
+    // This function tells us if we are in one of those states.
+    return
+        state == ClientState::registering ||
+        state == ClientState::running     ||
+        state == ClientState::collision   ;
+}
+
 uint32_t Client::GetLocalServiceCookie()
 {
     // Returns AVAHI_SERVICE_COOKIE_INVALID on failure
@@ -194,6 +202,25 @@ bool Client::SupportsMdnsLookups() const noexcept
     return avahi_nss_support();
 }
 
+std::error_code Client::Connect()
+{
+    int error = AVAHI_OK;
+    AvahiClient* p = avahi_client_new(
+        m_poll,
+        to_avahi(m_flags),
+        StaticCallback, // this WILL get called before *_new() returns
+        this, // No need for shared_from_this().  dtor calls _free() which prevents more callbacks *after* destruction (might still be a callback during).
+        &error
+    );
+
+    assert(p || error);
+
+    if (m_ptr == nullptr)
+        m_ptr.reset(p);
+
+    return priv::ErrFromAvahiInt(error);
+}
+
 
 void Client::StaticCallback(
     AvahiClient* c,
@@ -210,8 +237,30 @@ void Client::StaticCallback(
     if (!self->m_destroying && !self->m_ptr) // Avoid touching m_ptr during ~dtor
         self->m_ptr.reset(c);
 
+    auto s = from_avahi(state);
+
+    // I think it makes sense to trigger this callback before doing any reset logic
+    //  Otherwise I assume the end-user could get callbacks in a different order
     if (self->m_callback)
-        self->m_callback(from_avahi(state));
+        self->m_callback(s);
+
+    bool has_disconnected =
+        s == ClientState::failure &&
+        avahi_client_errno(c) == AVAHI_ERR_DISCONNECTED;
+
+    // This condition will occur when the avahi-daemon disconnects.
+    // We should be able to recover by doing this
+    if (has_disconnected && !self->m_destroying)
+    {
+        // Destroy all browsers, resolvers, entry groups related to this client.
+        // Then delete the client
+        if (self->m_disconnectCb)
+            self->m_disconnectCb();
+        self->m_ptr.reset();
+
+        if ((self->m_flags & ClientFlags::no_fail) != ClientFlags::none)
+            self->Connect();
+    }
 }
 
 }

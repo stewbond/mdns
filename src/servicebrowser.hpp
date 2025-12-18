@@ -11,6 +11,12 @@ class ServiceBrowser
 {
 public:
     using Callback = ServiceCallback;
+    struct StartParams
+    {
+        TypeInfo request;
+        LookupFlags flags;
+        Callback callback;
+    };
 
     explicit ServiceBrowser(std::shared_ptr<Client> client);
     ServiceBrowser(const ServiceBrowser&)            = delete;
@@ -18,19 +24,17 @@ public:
     ServiceBrowser& operator=(const ServiceBrowser&) = delete;
     ServiceBrowser& operator=(ServiceBrowser&&)      = default;
 
-    std::error_code Start(
-        TypeInfo request,
-        LookupFlags flags, // Can (1) force WAN or MCAST, (2) skip TXT, A, or AAAA records
-        Callback callback
-    );
+    std::error_code Start(StartParams&&);
 
     void Cancel();
 
     std::error_code GetLastError();
 
+    StartParams GetStartParams() const;
+
 private:
     std::shared_ptr<Client> m_client;
-    Callback m_callback;
+    StartParams m_startparams;
     std::unique_ptr<AvahiServiceBrowser, int(*)(AvahiServiceBrowser*)> m_ptr;
 
     static void ServiceBrowserCallback (

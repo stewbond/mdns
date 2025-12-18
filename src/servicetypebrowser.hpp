@@ -11,6 +11,12 @@ class ServiceTypeBrowser
 {
 public:
     using Callback = ServiceTypeCallback;
+    struct StartParams
+    {
+        DomainInfo request;
+        LookupFlags flags;
+        Callback callback;
+    };
 
     explicit ServiceTypeBrowser(std::shared_ptr<Client> client);
     ServiceTypeBrowser(const ServiceTypeBrowser&)            = delete;
@@ -18,19 +24,17 @@ public:
     ServiceTypeBrowser& operator=(const ServiceTypeBrowser&) = delete;
     ServiceTypeBrowser& operator=(ServiceTypeBrowser&&)      = default;
 
-    std::error_code Start(
-        DomainInfo request,
-        LookupFlags flags,
-        Callback callback
-    );
+    std::error_code Start(StartParams&&);
 
     void Cancel();
 
     std::error_code GetLastError();
 
+    StartParams GetStartParams() const;
+
 private:
     std::shared_ptr<Client> m_client;
-    Callback m_callback;
+    StartParams m_startparams;
     std::unique_ptr<
         AvahiServiceTypeBrowser,
         int(*)(AvahiServiceTypeBrowser*) // destructor auto _free()'s

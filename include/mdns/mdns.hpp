@@ -15,6 +15,7 @@ namespace mdns {
 class Group;
 
 // Multicast DNS handler
+// Main object in this library.
 class Mdns
 {
 public: // Ctor/Dtor
@@ -34,7 +35,7 @@ public: // Ctor/Dtor
     Mdns(InternalThread);
 
 #ifdef MDNS_BOOST
-    // Runs all operations in the threads supplied by boost::asio's io_context.
+    // Runs all async operations in the threads supplied by asio's io_context.
     // The avahi backend itself is not thread-safe, but all operations are done
     //     in a single strand, so you don't need to worry about protecting the
     //     internals.
@@ -48,6 +49,7 @@ public: // Ctor/Dtor
 #endif
 
     // Avahi supports glib and qt event loops too.
+    // Willing to support if requested.
 
     ~Mdns();
 
@@ -74,13 +76,16 @@ public: // Client functions
     std::error_code Run();
 
     // Stops all current browsers and resolvers.
+    void Cancel();
+
+    // Stops all current browsers and resolvers, then
     // If using an InternalThread, that thread will be stopped.
     // If using an interal poll object,
     //   call this from a callback for Run() to return
     //   To restart the event loop, call Run() again.
     // If using a boost::asio::io_context, all browsing and resolving operations
     //   will be cancelled, but the io_context is left alone.
-    void Cancel();
+    void Stop();
 
 public: // Lookup functions
 

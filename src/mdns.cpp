@@ -44,6 +44,11 @@ void Mdns::Cancel()
     return m_impl->Cancel();
 }
 
+void Mdns::Stop()
+{
+    return m_impl->Stop();
+}
+
 std::error_code Mdns::BrowseDomains(
     const DomainInfo& request,
     const DomainBrowserType& type,

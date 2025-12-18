@@ -44,7 +44,13 @@ std::error_code Mdns::Impl::Connect(
     const ClientCallback& callback
 )
 {
-    return m_client->Start(*m_poll, flags, callback);
+    m_userClientCallback = callback;
+    return m_client->Start(
+        *m_poll,
+        flags,
+        std::bind(&Mdns::Impl::OnClientState, this, std::placeholders::_1),
+        std::bind(&Mdns::Impl::OnClientDisconnect, this)
+    );
 }
 
 std::error_code Mdns::Impl::Run()
@@ -67,7 +73,11 @@ void Mdns::Impl::Cancel()
     CancelAll(m_addressresolvers);
     CancelAll(m_hostnameresolvers);
     CancelAll(m_serviceresolvers);
+}
 
+void Mdns::Impl::Stop()
+{
+    Cancel();
     m_poll->Stop();
 }
 
@@ -78,11 +88,19 @@ std::error_code Mdns::Impl::BrowseDomains(
     const DomainCallback& callback
 )
 {
-    if (m_client->GetState() != ClientState::running)
-        return Error::not_connected;
+    return BrowseDomains({request, type, flags, callback});
+}
+
+std::error_code Mdns::Impl::BrowseDomains(DomainBrowser::StartParams&& params)
+{
+    if (!m_client->IsConnected())
+    {
+        m_browserQueue.emplace( std::move(params)  );
+        return Error::not_connected; // Todo:  Save details in a browser queue.  Start processing when we enter the "connected" state.
+    }
 
     auto& browser = m_domainbrowsers.emplace_back(m_client);
-    return browser.Start(request, type, flags, callback);
+    return browser.Start( std::move(params) );
 }
 
 std::error_code Mdns::Impl::BrowseTypes(
@@ -91,11 +109,19 @@ std::error_code Mdns::Impl::BrowseTypes(
     const ServiceTypeCallback& callback
 )
 {
-    if (m_client->GetState() != ClientState::running)
+    return BrowseTypes({request, flags, callback});
+}
+
+std::error_code Mdns::Impl::BrowseTypes(ServiceTypeBrowser::StartParams&& params)
+{
+    if (!m_client->IsConnected())
+    {
+        m_browserQueue.emplace( std::move(params) );
         return Error::not_connected;
+    }
 
     auto& browser = m_typebrowsers.emplace_back(m_client);
-    return browser.Start(request, flags, callback);
+    return browser.Start( std::move(params) );
 }
 
 std::error_code Mdns::Impl::BrowseServices(
@@ -104,13 +130,20 @@ std::error_code Mdns::Impl::BrowseServices(
     const ServiceCallback& callback
 )
 {
-    if (m_client->GetState() != ClientState::running)
-        return Error::not_connected;
-
-    auto& browser = m_servicebrowsers.emplace_back(m_client);
-    return browser.Start(request, flags, callback);
+    return BrowseServices({request, flags, callback});
 }
 
+std::error_code Mdns::Impl::BrowseServices(ServiceBrowser::StartParams&& params)
+{
+    if (!m_client->IsConnected())
+    {
+        m_browserQueue.emplace( std::move(params) );
+        return Error::not_connected;
+    }
+
+    auto& browser = m_servicebrowsers.emplace_back(m_client);
+    return browser.Start( std::move(params) );
+}
 
 std::error_code Mdns::Impl::BrowseRecords(
     const RecordRequest& request,
@@ -118,11 +151,19 @@ std::error_code Mdns::Impl::BrowseRecords(
     const RecordCallback& callback
 )
 {
-    if (m_client->GetState() != ClientState::running)
+    return BrowseRecords({request, flags, callback});
+}
+
+std::error_code Mdns::Impl::BrowseRecords(RecordBrowser::StartParams&& params)
+{
+    if (!m_client->IsConnected())
+    {
+        m_browserQueue.emplace( std::move(params) );
         return Error::not_connected;
+    }
 
     auto& browser = m_recordbrowsers.emplace_back(m_client);
-    return browser.Start(request, flags, callback);
+    return browser.Start( std::move(params) );
 }
 
 std::error_code Mdns::Impl::ResolveAddress(
@@ -132,7 +173,7 @@ std::error_code Mdns::Impl::ResolveAddress(
     const AddressCallback& callback
 )
 {
-    if (m_client->GetState() != ClientState::running)
+    if (!m_client->IsConnected())
         return Error::not_connected;
 
     auto& resolver = m_addressresolvers.emplace_back(m_client);
@@ -147,7 +188,7 @@ std::error_code Mdns::Impl::ResolveHostname(
     const AddressCallback& callback
 )
 {
-    if (m_client->GetState() != ClientState::running)
+    if (!m_client->IsConnected())
         return Error::not_connected;
 
     auto& resolver = m_hostnameresolvers.emplace_back(m_client);
@@ -161,17 +202,75 @@ std::error_code Mdns::Impl::ResolveService(
     const ResolvedServiceCallback& callback
 )
 {
-    if (m_client->GetState() != ClientState::running)
+    if (!m_client->IsConnected())
         return Error::not_connected;
 
     // Todo: Erase resolver after the handler is invoked
     auto& resolver = m_serviceresolvers.emplace_back(m_client);
-    return resolver.Start( request, protocol, flags, callback);
+    return resolver.Start( request, protocol, flags,
+        [&](auto evt, auto info, auto flags, auto err){
+            std::erase_if(m_serviceresolvers, [](auto& ){ return true; });
+            callback(evt,std::move(info), flags, err);
+        }
+    );
 }
 
 Group Mdns::Impl::MakeGroup(GroupCallback callback, const std::string& name, PublishFlags flags)
 {
     return Group(m_client, callback, name, flags);
+}
+
+void Mdns::Impl::OnClientState(ClientState state)
+{
+    if ( Client::IsConnected(state) )
+    {
+        ProcessBrowserQueue();
+    }
+    if (m_userClientCallback)
+        m_userClientCallback(state);
+}
+
+void Mdns::Impl::OnClientDisconnect()
+{
+    auto SaveBrowser = [this](const auto& list){
+        for (const auto& item : list )
+            m_browserQueue.emplace( item.GetStartParams() );
+    };
+
+    SaveBrowser(m_domainbrowsers);
+    SaveBrowser(m_typebrowsers);
+    SaveBrowser(m_servicebrowsers);
+    SaveBrowser(m_recordbrowsers);
+
+    Cancel();
+}
+
+void Mdns::Impl::ProcessBrowserQueue()
+{
+    while (!m_browserQueue.empty())
+    {
+        auto& startParams = m_browserQueue.front();
+        std::visit( [this](auto&& arg){
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr(std::is_same_v<T,DomainBrowser::StartParams>)
+            {
+                BrowseDomains(std::move(arg));
+            }
+            else if constexpr(std::is_same_v<T,ServiceTypeBrowser::StartParams>)
+            {
+                BrowseTypes(std::move(arg));
+            }
+            else if constexpr(std::is_same_v<T,ServiceBrowser::StartParams>)
+            {
+                BrowseServices(std::move(arg));
+            }
+            else if constexpr(std::is_same_v<T,RecordBrowser::StartParams>)
+            {
+                BrowseRecords(std::move(arg));
+            }
+        }, startParams);
+        m_browserQueue.pop();
+    }
 }
 
 }

@@ -11,6 +11,13 @@ class DomainBrowser
 {
 public:
     using Callback = DomainCallback;
+    struct StartParams
+    {
+        DomainInfo request;
+        DomainBrowserType type; // AVAHI_DOMAIN_BROWSER_BROWSE
+        LookupFlags flags;
+        Callback callback;
+    };
 
     explicit DomainBrowser(std::shared_ptr<Client> client);
     DomainBrowser(const DomainBrowser&)            = delete;
@@ -18,20 +25,17 @@ public:
     DomainBrowser& operator=(const DomainBrowser&) = delete;
     DomainBrowser& operator=(DomainBrowser&&)      = default;
 
-    std::error_code Start(
-        DomainInfo,
-        DomainBrowserType, // AVAHI_DOMAIN_BROWSER_BROWSE
-        LookupFlags,
-        Callback
-    );
+    std::error_code Start(StartParams&&);
 
     void Cancel();
 
     std::error_code GetLastError();
 
+    StartParams GetStartParams() const;
+
 private:
     std::shared_ptr<Client> m_client;
-    Callback m_callback;
+    StartParams m_startparams;
     std::unique_ptr<AvahiDomainBrowser, int(*)(AvahiDomainBrowser*)> m_ptr;
 
     static void DomainBrowserCallback(
