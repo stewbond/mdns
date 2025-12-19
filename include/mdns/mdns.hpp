@@ -59,7 +59,7 @@ public: // Client functions
     // Connect to avahi-daemon
     std::error_code Connect(
         const ClientFlags& flags,
-        const ClientCallback& callback
+        const ClientCallback& callback = {}
     );
 
     // Starts the loop of the Poll interface.
