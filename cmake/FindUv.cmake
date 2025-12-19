@@ -16,9 +16,19 @@
 include(FindPackageHandleStandardArgs)
 find_package(PkgConfig QUIET)
 
-if(PkgConfig_FOUND)
-    pkg_check_modules(PC_UV QUIET libuv)
-    pkg_check_modules(PC_UV_STATIC QUIET libuv-static)
+option(UV_USE_STATIC_LIBS "Use static libuv libraries" OFF)
+
+if (UV_USE_STATIC_LIBS)
+    set(_uv_orig_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a") # Affects find_library()
+
+    if(PkgConfig_FOUND)
+        pkg_check_modules(PC_UV QUIET libuv-static)
+    endif()
+else()
+    if(PkgConfig_FOUND)
+        pkg_check_modules(PC_UV QUIET libuv)
+    endif()
 endif()
 
 find_path(
@@ -28,7 +38,6 @@ find_path(
     HINTS ${PC_UV_INCLUDE_DIRS}
 )
 
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".so" ".a")
 find_library(
     Uv_LIBRARY
     NAMES uv libuv
@@ -51,4 +60,8 @@ if (Uv_FOUND AND NOT TARGET uv::uv)
         IMPORTED_LOCATION "${Uv_LIBRARY}"
         INTERFACE_INCLUDE_DIRECTORIES "${Uv_INCLUDE_DIR}"
     )
+endif()
+
+if (UV_USE_STATIC_LIBS)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ${_uv_orig_suffixes})
 endif()

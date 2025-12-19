@@ -25,6 +25,13 @@
 include(FindPackageHandleStandardArgs)
 find_package(PkgConfig QUIET)
 
+option(AVAHI_USE_STATIC_LIBS "Use static Avahi libraries" OFF)
+
+if (AVAHI_USE_STATIC_LIBS)
+    set(_avahi_orig_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+endif()
+
 if(PkgConfig_FOUND)
     pkg_check_modules(PC_AVAHI_COMMON QUIET avahi-common)
     pkg_check_modules(PC_AVAHI_CLIENT QUIET avahi-client)
@@ -109,9 +116,10 @@ if("client" IN_LIST Avahi_FIND_COMPONENTS)
             )
         endif()
 
-        if(TARGET avahi::common)
-            target_link_libraries(avahi::client INTERFACE avahi::common)
-        endif()
+        target_link_libraries(avahi::client INTERFACE
+          $<TARGET_NAME_IF_EXISTS:avahi::common>
+          $<$<BOOL:AVAHI_USE_STATIC_LIBS>:dbus-1>
+        )
     endif()
 endif()
 
@@ -119,3 +127,8 @@ find_package_handle_standard_args(Avahi
     VERSION_VAR PC_AVAHI_CLIENT_VERSION
     HANDLE_COMPONENTS
 )
+
+if (AVAHI_USE_STATIC_LIBS)
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ${_avahi_orig_suffixes})
+endif()
+

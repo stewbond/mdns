@@ -4,6 +4,13 @@ project(mdns VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(BUILD_SHARED_LIBS "Build mdns as a shared library" ON)
+if (NOT BUILD_SHARED_LIBS)
+  set(AVAHI_USE_STATIC_LIBS ON)
+  set(UV_USE_STATIC_LIBS ON)
+  set(BOOST_USE_SHARED_LIBS ON)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 cmake_policy(SET CMP0167 NEW) # Addresses warnings about FindBoost in cmake < 3.30
@@ -12,6 +19,9 @@ find_package(Uv QUIET)                         # target: uv::uv
 find_package(Avahi COMPONENTS client REQUIRED) # target: avahi::client
 
 add_library(mdns
+
+  # SHARED|STATIC derived from ${BUILD_SHARED_LIBS}
+
   # Public objects class
   src/mdns.cpp
   src/group.cpp
@@ -104,8 +114,13 @@ install(TARGETS mdns
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mdns/
 )
 
+if (BUILD_SHARED_LIBS)
+  set(targetFile mdnsSharedTargets.cmake)
+else()
+  set(targetFile mdnsStaticTargets.cmake)
+endif()
 install(EXPORT mdnsTargets
-  FILE mdnsTargets.cmake
+  FILE ${targetFile}
   NAMESPACE mdns::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/mdns
 )

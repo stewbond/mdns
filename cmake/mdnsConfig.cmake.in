@@ -1,5 +1,12 @@
 @PACKAGE_INIT@
 
+option(MDNS_USE_STATIC_LIBS "Link to MDNS static libraries" OFF)
+
+if (MDNS_USE_STATIC_LIBS)
+  set(AVAHI_USE_STATIC_LIBS ON)
+  set(UV_USE_STATIC_LIBS ON)
+endif()
+
 # We supplied a FindAvahi.cmake.  Let the user find ours if no other is provided
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
 include(CMakeFindDependencyMacro)
@@ -9,5 +16,8 @@ if(@MDNS_WITH_UV@)
   find_dependency(Uv QUIET)
 endif()
 
-include("${CMAKE_CURRENT_LIST_DIR}/mdnsTargets.cmake")
-
+if (MDNS_USE_STATIC_LIBS)
+  include("${CMAKE_CURRENT_LIST_DIR}/mdnsStaticTargets.cmake")
+else()
+  include("${CMAKE_CURRENT_LIST_DIR}/mdnsSharedTargets.cmake")
+endif()
