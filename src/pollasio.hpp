@@ -21,6 +21,7 @@ public:
     const AvahiPoll* GetPoll() const override;
     std::error_code  Run()           override;
     std::error_code  Stop()          override;
+    std::error_code Post(std::function<void()>) override;
 private:
     class Watch;
     class Timeout;

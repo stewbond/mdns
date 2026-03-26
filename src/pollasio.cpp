@@ -34,6 +34,12 @@ std::error_code PollAsio::Stop()
     return Error::ok;
 }
 
+std::error_code PollAsio::Post(std::function<void()> work)
+{
+    boost::asio::post(m_io, std::move(work));
+    return Error::ok;
+}
+
 PollAsio::Strand& PollAsio::GetIo()
 {
     return m_io;
