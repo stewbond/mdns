@@ -45,6 +45,7 @@ add_library(mdns
   src/groupimpl.cpp
   src/errorcode.cpp
   src/exception.cpp
+  src/polliface.cpp
   src/pollsimple.cpp
   src/pollthreaded.cpp
   $<$<TARGET_EXISTS:Boost::system>:src/pollasio.cpp>
