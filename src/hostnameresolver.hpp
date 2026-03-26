@@ -29,6 +29,7 @@ public:
     void Cancel();
 
     std::error_code GetLastError();
+    bool IsResolved() const;
 
 private:
     std::shared_ptr<Client> m_client;
@@ -37,6 +38,7 @@ private:
         AvahiHostNameResolver,
         int(*)(AvahiHostNameResolver*) // destructor auto _free()'s
     > m_ptr;
+    bool m_resolved;
 
     static void HostNameResolverCallback (
         AvahiHostNameResolver* r,

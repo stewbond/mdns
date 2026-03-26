@@ -101,6 +101,8 @@ private:
     void OnClientState(ClientState); // Local callback
     void OnClientDisconnect(); // Callback for when the client disconnects
     void ProcessBrowserQueue();
+    void CleanupAddressResolvers();
+    void CleanupHostnameResolvers();
     void CleanupServiceResolvers();
 
     std::unique_ptr<PollIface>    m_poll;

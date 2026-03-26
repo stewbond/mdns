@@ -178,7 +178,12 @@ std::error_code Mdns::Impl::ResolveAddress(
 
     // Todo: Erase resolver after the handler is invoked
     auto& resolver = m_addressresolvers.emplace_back(m_client);
-    return resolver.Start(device, a, flags, callback);
+    return resolver.Start(device, a, flags,
+        [this, cb=callback](auto evt, auto info, auto flags, auto err){
+            cb(evt,std::move(info), flags, err);
+            m_poll->Post(std::bind(&Mdns::Impl::CleanupAddressResolvers, this));
+        }
+    );
 }
 
 std::error_code Mdns::Impl::ResolveHostname(
@@ -194,7 +199,12 @@ std::error_code Mdns::Impl::ResolveHostname(
 
     // Todo: Erase resolver after the handler is invoked
     auto& resolver = m_hostnameresolvers.emplace_back(m_client);
-    return resolver.Start(device, hostname, aprotocol, flags, callback);
+    return resolver.Start(device, hostname, aprotocol, flags,
+        [this, cb=callback](auto evt, auto info, auto flags, auto err){
+            cb(evt,std::move(info), flags, err);
+            m_poll->Post(std::bind(&Mdns::Impl::CleanupHostnameResolvers, this));
+        }
+    );
 }
 
 std::error_code Mdns::Impl::ResolveService(
@@ -278,21 +288,37 @@ void Mdns::Impl::ProcessBrowserQueue()
     }
 }
 
-void Mdns::Impl::CleanupServiceResolvers()
+template<class Resolver>
+void CleanupResolvers(Resolver& list)
 {
-    for (auto it = m_serviceresolvers.begin();
-         it != m_serviceresolvers.end(); )
+    for (auto it = list.begin();
+         it != list.end(); )
     {
         if (it->IsResolved())
         {
             it->Cancel();
-            it = m_serviceresolvers.erase(it);
+            it = list.erase(it);
         }
         else
         {
             ++it;
         }
     }
+}
+
+void Mdns::Impl::CleanupAddressResolvers()
+{
+    CleanupResolvers(m_addressresolvers);
+}
+
+void Mdns::Impl::CleanupHostnameResolvers()
+{
+    CleanupResolvers(m_hostnameresolvers);
+}
+
+void Mdns::Impl::CleanupServiceResolvers()
+{
+    CleanupResolvers(m_serviceresolvers);
 }
 
 }

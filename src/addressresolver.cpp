@@ -8,6 +8,7 @@ namespace mdns{
 AddressResolver::AddressResolver(std::shared_ptr<Client> client)
     : m_client(client)
     , m_ptr(nullptr, avahi_address_resolver_free)
+    , m_resolved(false)
 {}
 
 std::error_code AddressResolver::Start(
@@ -56,6 +57,11 @@ std::error_code AddressResolver::GetLastError()
     return m_client->GetLastError();
 }
 
+bool AddressResolver::IsResolved() const
+{
+    return m_resolved;
+}
+
 void AddressResolver::AddressResolverCallback (
     AvahiAddressResolver *r,
     AvahiIfIndex interface,
@@ -90,6 +96,7 @@ void AddressResolver::AddressResolverCallback (
             from_avahi(flags),
             ec
         );
-}
 
+    self->m_resolved = true;
+}
 }
