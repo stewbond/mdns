@@ -8,6 +8,7 @@ namespace mdns{
 ServiceResolver::ServiceResolver(std::shared_ptr<Client> client)
     : m_client(client)
     , m_ptr(nullptr, avahi_service_resolver_free)
+    , m_resolved(false)
 {}
 
 std::error_code ServiceResolver::Start(
@@ -52,6 +53,11 @@ std::error_code ServiceResolver::GetLastError()
     return m_client->GetLastError();
 }
 
+bool ServiceResolver::IsResolved() const
+{
+    return m_resolved;
+}
+
 void ServiceResolver::ServiceResolverCallback (
     AvahiServiceResolver* r,
     AvahiIfIndex interface,
@@ -77,16 +83,6 @@ void ServiceResolver::ServiceResolverCallback (
         Error::ok :
         self->GetLastError();
 
-    // IfIndex interface
-    // Protocol protocol
-    // std::string domain.
-    // std;:string type
-    // std::string name
-    // std::string hostname;
-    // uint16_t port
-    // StrList txt
-    // StrList subtypes
-    // Address addr;
     ResolvedServiceInfo result = {
         static_cast<IfIndex>(interface),
         from_avahi(protocol),
@@ -106,5 +102,7 @@ void ServiceResolver::ServiceResolverCallback (
             from_avahi(flags),
             ec
         );
+
+    self->m_resolved = true;
 }
 }

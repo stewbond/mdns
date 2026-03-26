@@ -176,6 +176,7 @@ std::error_code Mdns::Impl::ResolveAddress(
     if (!m_client->IsConnected())
         return Error::not_connected;
 
+    // Todo: Erase resolver after the handler is invoked
     auto& resolver = m_addressresolvers.emplace_back(m_client);
     return resolver.Start(device, a, flags, callback);
 }
@@ -191,6 +192,7 @@ std::error_code Mdns::Impl::ResolveHostname(
     if (!m_client->IsConnected())
         return Error::not_connected;
 
+    // Todo: Erase resolver after the handler is invoked
     auto& resolver = m_hostnameresolvers.emplace_back(m_client);
     return resolver.Start(device, hostname, aprotocol, flags, callback);
 }
@@ -205,12 +207,15 @@ std::error_code Mdns::Impl::ResolveService(
     if (!m_client->IsConnected())
         return Error::not_connected;
 
-    // Todo: Erase resolver after the handler is invoked
     auto& resolver = m_serviceresolvers.emplace_back(m_client);
     return resolver.Start( request, protocol, flags,
-        [&](auto evt, auto info, auto flags, auto err){
-            std::erase_if(m_serviceresolvers, [](auto& ){ return true; });
-            callback(evt,std::move(info), flags, err);
+        [this, cb=callback](auto evt, auto info, auto flags, auto err){
+
+            cb(evt,std::move(info), flags, err);
+            // Service resolver is on the stack right now (we are called by it)
+            // It is not safe to clean it up yet.
+            // So we post() it to the event loop to be processed later.
+            m_poll->Post(std::bind(&Mdns::Impl::CleanupServiceResolvers, this));
         }
     );
 }
@@ -270,6 +275,23 @@ void Mdns::Impl::ProcessBrowserQueue()
             }
         }, startParams);
         m_browserQueue.pop();
+    }
+}
+
+void Mdns::Impl::CleanupServiceResolvers()
+{
+    for (auto it = m_serviceresolvers.begin();
+         it != m_serviceresolvers.end(); )
+    {
+        if (it->IsResolved())
+        {
+            it->Cancel();
+            it = m_serviceresolvers.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
     }
 }
 
