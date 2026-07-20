@@ -38,7 +38,7 @@ const char* ErrorCategory::c_msg(int ev) noexcept
     case Error::bad_client_state   : return "An integer was supplied as a client state outside of the range expected";
     case Error::bad_browser_event  : return "An integer was supplied as a browser event outside of the range expected";
     case Error::bad_resolver_event : return "An integer was supplied as a resolver event outside of the range expected";
-    case Error::bad_browser_type   : return "An integer was supplied as a domain brower type outside of the range expected";
+    case Error::bad_browser_type   : return "An integer was supplied as a domain browser type outside of the range expected";
     case Error::bad_group_type     : return "An integer was supplied as a group entry type outside of the range expected";
     case Error::not_connected      : return "Operation attempted before client is connected";
     case Error::bad_group_name     : return "A service was added to a group with a conflicting name"; // All services in a group must have identical names
