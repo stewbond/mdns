@@ -2,6 +2,8 @@
 build-static = ../obj-$(DEB_HOST_MULTIARCH)-static
 build-shared = ../obj-$(DEB_HOST_MULTIARCH)-shared
 
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
 %:
 	dh $@
 
@@ -22,3 +24,8 @@ override_dh_auto_build:
 override_dh_auto_install:
 	dh_auto_install --builddirectory=$(build-static)
 	dh_auto_install --builddirectory=$(build-shared)
+
+override_dh_auto_clean:
+	rm -rf $(build-static)
+	rm -rf $(build-shared)
+	dh_auto_clean $@
